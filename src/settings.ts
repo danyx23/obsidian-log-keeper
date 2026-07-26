@@ -1,6 +1,6 @@
-import LogKeeperPlugin from "main";
-import { PluginSettingTab, App, Setting, Notice } from "obsidian";
-import { FolderSuggestModal } from "./FolderSuggestModal";
+import LogKeeperPlugin from "main"
+import { PluginSettingTab, App, Setting, Notice } from "obsidian"
+import { FolderSuggestModal } from "./FolderSuggestModal"
 
 // Plugin settings
 export interface LogKeeperSettings {
@@ -24,7 +24,7 @@ const MAX_UPDATE_INTERVAL: number = 84600
 export const DEFAULT_SETTINGS: LogKeeperSettings = {
     oneModificationPerDay: true,
     updateInterval: 60,
-	ignoredFolders: new Array()
+	ignoredFolders: []
 }
 
 export class LogKeeperTab extends PluginSettingTab {
@@ -41,10 +41,11 @@ export class LogKeeperTab extends PluginSettingTab {
 		const { containerEl } = this
 		
 		const suggestions: FolderSuggestModal = new FolderSuggestModal(this.app, async (folderPath) => {
-			if (!this.plugin.settings.ignoredFolders.includes(folderPath))
+			if (!this.plugin.settings.ignoredFolders.includes(folderPath)) {
 				this.plugin.settings.ignoredFolders.push(folderPath)
-				await this.plugin.saveSettings()
-				this.display()
+			}
+			await this.plugin.saveSettings()
+			this.display()
 		})
 
 		// The 'root' element of the settings tab.
@@ -110,7 +111,7 @@ export class LogKeeperTab extends PluginSettingTab {
 				Ignored folders will prevent notes within them from being stamped with a date and time.
 				`)
 			.addButton((button) => {
-				button.onClick(() => suggestions.open())
+				button.onClick(() => { suggestions.open() })
 				button.setButtonText("Add folder to ignore")
 			})
 		
@@ -132,15 +133,15 @@ export class LogKeeperTab extends PluginSettingTab {
 
 	hide(): void {
 		if (this.warning_msg.length > 0) {
-			this.printWarning();
+			this.printWarning()
 		}
 	}
-	
+
 	// For plugin only.
 	// Print warnings to user when putting in the wrong inputs for settings.
 	private printWarning() {
-		new Notice(this.warning_msg, 5000);
+		new Notice(this.warning_msg, 5000)
 		// Reset the warning message
-		this.warning_msg = '';
+		this.warning_msg = ''
 	}
 }

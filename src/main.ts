@@ -1,6 +1,9 @@
 import { Plugin, TFile, Editor, moment, FrontMatterCache, MarkdownView, getFrontMatterInfo } from 'obsidian'
 import { LogKeeperTab, DEFAULT_SETTINGS, LogKeeperSettings } from './settings'
-import { Moment } from 'moment'
+
+// Obsidian bundles moment, so the type is derived from the re-exported value
+// rather than importing from the 'moment' package directly.
+type Moment = ReturnType<typeof moment>
 
 interface YAMLProperty {
 	property: string | undefined,
@@ -10,7 +13,9 @@ interface YAMLProperty {
 interface FileState {
 	lastMeaningfulSignature?: string
 	pendingSignature?: string
-	timer?: ReturnType<typeof setTimeout>
+	// window.setTimeout returns a numeric handle in the browser/Electron
+	// environment Obsidian runs in.
+	timer?: number
 }
 
 const LAST_MODIFIED_PROPERTY = 'last-modified'
@@ -45,6 +50,10 @@ export default class LogKeeperPlugin extends Plugin {
 		// editor-paste separately to cover clipboard actions. The paste event
 		// fires *before* the pasted content is inserted into the editor, so we
 		// defer the signature check to the next tick via setTimeout.
+		//
+		// This handler deliberately does not call evt.preventDefault(): it only
+		// observes the paste so it can timestamp the note afterwards, and
+		// Obsidian must still perform the actual insertion.
 		this.registerEvent(this.app.workspace.on('editor-paste', (evt, editor, info) => {
 			if (evt.defaultPrevented) {
 				return
@@ -53,7 +62,7 @@ export default class LogKeeperPlugin extends Plugin {
 				return
 			}
 			const file = info.file
-			setTimeout(() => void this.handleEditorContentChange(file, editor), 0)
+			window.setTimeout(() => void this.handleEditorContentChange(file, editor), 0)
 		}))
 
 		this.registerEvent(this.app.workspace.on('file-open', (file) => {
@@ -67,14 +76,15 @@ export default class LogKeeperPlugin extends Plugin {
 	onunload() {
 		for (const state of this.fileStates.values()) {
 			if (state.timer) {
-				clearTimeout(state.timer)
+				window.clearTimeout(state.timer)
 			}
 		}
 		this.fileStates.clear()
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData())
+		const savedSettings = await this.loadData() as Partial<LogKeeperSettings> | null
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings)
 	}
 
 	async saveSettings() {
@@ -98,10 +108,10 @@ export default class LogKeeperPlugin extends Plugin {
 
 		try {
 			const signature = this.getContentSignature(await this.app.vault.cachedRead(file))
-			if (state.lastMeaningfulSignature === undefined) {
-				state.lastMeaningfulSignature = signature
-			}
-			return state.lastMeaningfulSignature ?? signature
+			// Another caller may have seeded the signature while the read was in
+			// flight; keep whichever value landed first.
+			state.lastMeaningfulSignature ??= signature
+			return state.lastMeaningfulSignature
 		}
 		catch {
 			return null
@@ -133,12 +143,12 @@ export default class LogKeeperPlugin extends Plugin {
 	private scheduleFrontmatterUpdate(file: TFile, scheduledSignature: string): void {
 		const state = this.getFileState(file.path)
 		if (state.timer) {
-			clearTimeout(state.timer)
+			window.clearTimeout(state.timer)
 		}
 
 		state.pendingSignature = scheduledSignature
 
-		state.timer = setTimeout(() => {
+		state.timer = window.setTimeout(() => {
 			state.timer = undefined
 			void this.flushScheduledFrontmatterUpdate(file, scheduledSignature)
 		}, DEBOUNCE_UPDATE_MS)

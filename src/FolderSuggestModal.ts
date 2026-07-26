@@ -1,6 +1,8 @@
-import { App, TFolder, FuzzySuggestModal } from "obsidian";
+import { App, TFolder, FuzzySuggestModal } from "obsidian"
 
-type StringCallback = (str: string) => void
+// Callers may perform async work (such as persisting settings) in response to a
+// selection, so a promise-returning callback is accepted and fired off.
+type StringCallback = (str: string) => void | Promise<void>
 
 /** 
 * Uses the Obsidian class, 'SuggestModal<T>' to create a selectable list of all folder paths (as strings) in the vault.
@@ -26,8 +28,8 @@ export class FolderSuggestModal extends FuzzySuggestModal<string> {
 		return item
 	}
 	
-	onChooseItem(item: string, evt: MouseEvent | KeyboardEvent): void {
-		this.callback(item)
+	onChooseItem(item: string, _evt: MouseEvent | KeyboardEvent): void {
+		void this.callback(item)
 	}
 
 	/** 
