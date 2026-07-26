@@ -1,6 +1,6 @@
 import esbuild from "esbuild";
-import process from "process";
-import builtins from "builtin-modules";
+import process from "node:process";
+import { builtinModules as builtins } from "node:module";
 
 const banner =
 `/*
@@ -31,7 +31,10 @@ const context = await esbuild.context({
 		"@lezer/common",
 		"@lezer/highlight",
 		"@lezer/lr",
-		...builtins],
+		// Mark Node built-ins external in both bare ("fs") and prefixed
+		// ("node:fs") forms, since either spelling can appear in imports.
+		...builtins,
+		...builtins.map((name) => `node:${name}`)],
 	format: "cjs",
 	target: "es2018",
 	logLevel: "info",
